@@ -1311,10 +1311,33 @@ jobs:
             set_config "CONFIG_ANDROID_BINDER_IPC_RUST=m"
           fi
 
-          # PJF110 vanilla baseline: ONLY SUBLEVEL pin (no MODULE_SIG/TRIM/PSTORE/CMDLINE/HMBIRD overrides)
-          # all those overrides were tried in Build #6-#9 and none enabled boot
+          # PJF110 Build #11: USB gadget console (g_serial) for live dmesg via /dev/ttyACM0
           if [ "${{ github.event.inputs.FILE }}" = "oneplus_ace_3v_v" ]; then
-            echo "[+] PJF110 vanilla baseline build — no config overrides this time"
+            echo "[+] PJF110: enable USB g_serial console + earlycon for live debug"
+            for line in \
+              "CONFIG_USB_GADGET=y" \
+              "CONFIG_USB_CONFIGFS=y" \
+              "CONFIG_USB_CONFIGFS_SERIAL=y" \
+              "CONFIG_USB_CONFIGFS_ACM=y" \
+              "CONFIG_USB_G_SERIAL=y" \
+              "CONFIG_U_SERIAL_CONSOLE=y" \
+              "CONFIG_USB_F_ACM=y" \
+              "CONFIG_USB_F_SERIAL=y" \
+              "CONFIG_USB_LIBCOMPOSITE=y" \
+              "CONFIG_SERIAL_DEV_BUS=y"; do
+              key="${line%%=*}"
+              sed -i -e "/^${key}=/d" -e "/^# ${key} is not set\$/d" "$CONFIG_FILE"
+              echo "$line" >> "$CONFIG_FILE"
+            done
+            echo "[+] PJF110: append earlycon + ttyGS0 to CMDLINE_EXTEND"
+            DBG_CMDLINE='console=ttyGS0,115200 earlycon=qcom_geni,0x88c000 ignore_loglevel printk.devkmsg=on panic=10'
+            sed -i -e '/^CONFIG_CMDLINE=/d' -e '/^# CONFIG_CMDLINE_BOOL/d' -e '/^CONFIG_CMDLINE_BOOL/d' \
+                   -e '/^CONFIG_CMDLINE_EXTEND/d' -e '/^# CONFIG_CMDLINE_EXTEND/d' "$CONFIG_FILE"
+            echo "CONFIG_CMDLINE_BOOL=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CMDLINE=\"$DBG_CMDLINE\"" >> "$CONFIG_FILE"
+            echo "CONFIG_CMDLINE_EXTEND=y" >> "$CONFIG_FILE"
+            echo "[+] verifying:"
+            grep -E "USB_G|USB_F|USB_GADGET|CMDLINE|SERIAL_DEV" "$CONFIG_FILE" | head -20
           fi
 
           # 移除构建审查
