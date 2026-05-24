@@ -1311,6 +1311,20 @@ jobs:
             set_config "CONFIG_ANDROID_BINDER_IPC_RUST=m"
           fi
 
+          # PJF110 ColorOS: disable vendor module signature enforcement
+          # Root cause Build #6 black screen: our auto-generated key != OPlus signing key,
+          # vendor_dlkm modules signed by OPlus rejected → init fail → black screen
+          if [ "${{ github.event.inputs.FILE }}" = "oneplus_ace_3v_v" ]; then
+            echo "[+] PJF110 ColorOS: disabling MODULE_SIG_PROTECT/FORCE/ALL/SIG"
+            for k in CONFIG_MODULE_SIG_PROTECT CONFIG_MODULE_SIG_FORCE CONFIG_MODULE_SIG_ALL CONFIG_MODULE_SIG; do
+              # remove any existing setting (=y or "is not set" or =m) then add "is not set"
+              sed -i -e "/^${k}=/d" -e "/^# ${k} is not set\$/d" "$CONFIG_FILE"
+              echo "# ${k} is not set" >> "$CONFIG_FILE"
+            done
+            echo "[+] verifying MODULE_SIG settings after override:"
+            grep -E "MODULE_SIG" "$CONFIG_FILE" | head -10
+          fi
+
           # 移除构建审查
           sed -i 's/check_defconfig//' ./build.config.gki
 
