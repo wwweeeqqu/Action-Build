@@ -34,6 +34,7 @@ on:
           - oneplus_turbo_6v
           - oneplus_nord_4_b
           - oneplus_ace_3v_b
+          - oneplus_ace_3v_v
           - oneplus_pad_mt6897_b
           - oneplus_13r_b
           - oneplus_ace3_pro_b
