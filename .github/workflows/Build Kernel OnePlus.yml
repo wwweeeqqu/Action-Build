@@ -583,8 +583,9 @@ jobs:
           echo "[+] Current SUBLEVEL: $(grep -E '^SUBLEVEL' Makefile | head -1)"
           echo "[+] Fetching pin commit $PIN..."
           git fetch --depth=1 origin "$PIN" || git fetch origin "$PIN"
-          git checkout "$PIN"
-          echo "[+] After checkout:"
+          echo "[+] Hard-resetting to FETCH_HEAD (discard local repo-sync edits)..."
+          git reset --hard FETCH_HEAD
+          echo "[+] After reset:"
           git log --oneline -1
           grep -E '^(VERSION|PATCHLEVEL|SUBLEVEL|EXTRAVERSION)' Makefile | head -4
 
