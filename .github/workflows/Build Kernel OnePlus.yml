@@ -1311,18 +1311,39 @@ jobs:
             set_config "CONFIG_ANDROID_BINDER_IPC_RUST=m"
           fi
 
-          # PJF110 ColorOS: disable vendor module signature enforcement
-          # Root cause Build #6 black screen: our auto-generated key != OPlus signing key,
-          # vendor_dlkm modules signed by OPlus rejected → init fail → black screen
+          # PJF110 ColorOS overrides
           if [ "${{ github.event.inputs.FILE }}" = "oneplus_ace_3v_v" ]; then
-            echo "[+] PJF110 ColorOS: disabling MODULE_SIG_PROTECT/FORCE/ALL/SIG"
+            echo "[+] PJF110: disabling MODULE_SIG_PROTECT/FORCE/ALL/SIG"
             for k in CONFIG_MODULE_SIG_PROTECT CONFIG_MODULE_SIG_FORCE CONFIG_MODULE_SIG_ALL CONFIG_MODULE_SIG; do
-              # remove any existing setting (=y or "is not set" or =m) then add "is not set"
               sed -i -e "/^${k}=/d" -e "/^# ${k} is not set\$/d" "$CONFIG_FILE"
               echo "# ${k} is not set" >> "$CONFIG_FILE"
             done
-            echo "[+] verifying MODULE_SIG settings after override:"
-            grep -E "MODULE_SIG" "$CONFIG_FILE" | head -10
+            echo "[+] PJF110: disabling TRIM_UNUSED_KSYMS (keep all symbol exports for vendor_dlkm)"
+            for k in CONFIG_TRIM_UNUSED_KSYMS CONFIG_UNUSED_KSYMS_WHITELIST; do
+              sed -i -e "/^${k}=/d" -e "/^# ${k} is not set\$/d" "$CONFIG_FILE"
+              echo "# ${k} is not set" >> "$CONFIG_FILE"
+            done
+            echo "[+] PJF110: enable PSTORE black-box for boot failure debug"
+            for line in \
+              "CONFIG_PSTORE=y" \
+              "CONFIG_PSTORE_DEFAULT_KMSG_BYTES=1048576" \
+              "CONFIG_PSTORE_CONSOLE=y" \
+              "CONFIG_PSTORE_PMSG=y" \
+              "CONFIG_PSTORE_RAM=y" \
+              "CONFIG_PSTORE_RAM_ANNOTATION_APPEND=y"; do
+              key="${line%%=*}"
+              sed -i -e "/^${key}=/d" -e "/^# ${key} is not set\$/d" "$CONFIG_FILE"
+              echo "$line" >> "$CONFIG_FILE"
+            done
+            echo "[+] PJF110: append debug cmdline (panic=10 auto-reboot, verbose printk)"
+            DBG_CMDLINE='panic=10 ignore_loglevel printk.devkmsg=on initcall_debug'
+            sed -i -e '/^CONFIG_CMDLINE=/d' -e '/^# CONFIG_CMDLINE_BOOL/d' -e '/^CONFIG_CMDLINE_BOOL/d' \
+                   -e '/^CONFIG_CMDLINE_EXTEND/d' -e '/^# CONFIG_CMDLINE_EXTEND/d' "$CONFIG_FILE"
+            echo "CONFIG_CMDLINE_BOOL=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CMDLINE=\"$DBG_CMDLINE\"" >> "$CONFIG_FILE"
+            echo "CONFIG_CMDLINE_EXTEND=y" >> "$CONFIG_FILE"
+            echo "[+] verifying:"
+            grep -E "MODULE_SIG|TRIM_UNUSED|PSTORE|CMDLINE" "$CONFIG_FILE" | head -30
           fi
 
           # 移除构建审查
