@@ -571,6 +571,23 @@ jobs:
             sed -i 's/if check_defconfig == None:/if False:  # check_defconfig == None:/' kernel_platform/build/kernel/kleaf/common_kernels.bzl
           fi
 
+      - name: Pin kernel source to SUBLEVEL=75 for PJF110
+        if: ${{ github.event.inputs.FILE == 'oneplus_ace_3v_v' }}
+        shell: bash
+        run: |
+          set -e
+          PIN=f05d3adac85f345e416e06f0de3cd6cddfc4818d
+          cd kernel_workspace/kernel_platform/common
+          echo "[+] Current HEAD:"
+          git log --oneline -1 || true
+          echo "[+] Current SUBLEVEL: $(grep -E '^SUBLEVEL' Makefile | head -1)"
+          echo "[+] Fetching pin commit $PIN..."
+          git fetch --depth=1 origin "$PIN" || git fetch origin "$PIN"
+          git checkout "$PIN"
+          echo "[+] After checkout:"
+          git log --oneline -1
+          grep -E '^(VERSION|PATCHLEVEL|SUBLEVEL|EXTRAVERSION)' Makefile | head -4
+
       - name: Kernel Version Handling
         run: |
           cd kernel_workspace/kernel_platform
@@ -1341,35 +1358,20 @@ jobs:
           echo "Disabling GPUEB for MTK kernel 5.10"
           sed -i '/obj-y.*gpueb/d' kernel_workspace/kernel-5.10/drivers/gpu/mediatek/Makefile
 
-      - name: Fix SukiSU sulog/sucompat bug (issue #883)
+      - name: Fix SukiSU sulog USER_ARG_NULL bug (issue #883)
         if: ${{ github.event.inputs.KPM != 'N/A' }}
         shell: bash
         run: |
           set -e
-          KSU_ROOT=kernel_workspace/kernel_platform/common/drivers
-          F1="$KSU_ROOT/kernelsu/sulog/event.c"
-          F2="$KSU_ROOT/kernelsu/feature/sucompat.c"
-          echo "===== event.c fix ====="
+          F1=kernel_workspace/kernel_platform/common/drivers/kernelsu/sulog/event.c
           if [ -f "$F1" ]; then
+            echo "[BEFORE]"
             grep -n 'USER_ARG_NULL' "$F1" | head -5 || true
             sed -i 's|#define USER_ARG_NULL ((struct user_arg_ptr){ 0 })|#define USER_ARG_NULL (\&(struct user_arg_ptr){ 0 })|g' "$F1"
             echo "[AFTER]"
             grep -n 'USER_ARG_NULL' "$F1" | head -5 || true
           else
             echo "[skip] $F1 not present"
-          fi
-          echo "===== sucompat.c fix ====="
-          if [ -f "$F2" ]; then
-            sed -n '40,60p' "$F2"
-            if ! awk 'NR>=40 && NR<=60 && /#endif/ {f=1} END{exit !f}' "$F2"; then
-              awk '/\/\/ dead code/ && !done { print "#endif"; done=1 } { print }' "$F2" > "$F2.tmp" && mv "$F2.tmp" "$F2"
-              echo "[+] Inserted #endif before // dead code"
-              sed -n '40,60p' "$F2"
-            else
-              echo "[skip] #endif already present"
-            fi
-          else
-            echo "[skip] $F2 not present"
           fi
 
       - name: Build Kernel FAST
